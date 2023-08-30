@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Twitter Login</title>
+</head>
+<body>
+  <button onclick="startTwitterLogin()">Login with Twitter</button>
+
+  <script>
+    const CONSUMER_KEY = '6kiZnzCeEKuAYPm1DUqboVwvt';
+    const CONSUMER_SECRET = 'mOO1QOqcXgVgoNffELtvmxsrdgu3L6lMSEgltNNrRNlcl0Pr3f';
+    const CALLBACK_URL = 'http://localhost:3000/callback'; // Replace with your callback URL
+
+    function startTwitterLogin() {
+      // Generate a unique oauth_nonce and timestamp
+      const oauth_nonce = generateNonce();
+      const oauth_timestamp = Math.floor(Date.now() / 1000);
+
+      // Create the OAuth signature
+      const signature = createSignature('POST', 'https://api.twitter.com/oauth/request_token', {
+        oauth_callback: CALLBACK_URL,
+        oauth_consumer_key: CONSUMER_KEY,
+        oauth_nonce,
+        oauth_signature_method: 'HMAC-SHA1',
+        oauth_timestamp,
+        oauth_version: '1.0',
+      }, CONSUMER_SECRET);
+
+      // Create the Authorization header
+      const authorizationHeader = createAuthorizationHeader({
+        oauth_callback: CALLBACK_URL,
+        oauth_consumer_key: CONSUMER_KEY,
+        oauth_nonce,
+        oauth_signature: signature,
+        oauth_signature_method: 'HMAC-SHA1',
+        oauth_timestamp,
+        oauth_version: '1.0',
+      });
+
+      // Send a POST request to obtain a request token
+      fetch('https://api.twitter.com/oauth/request_token', {
+        method: 'POST',
+        headers: {
+          Authorization: authorizationHeader,
+        },
+      })
+      .then(response => response.text())
+      .then(data => {
+        const params = new URLSearchParams(data);
+        const oauthToken = params.get('oauth_token');
+        const oauthTokenSecret = params.get('oauth_token_secret');
+
+        // Store these tokens and redirect the user to Twitter for authentication
+        sessionStorage.setItem('oauthToken', oauthToken);
+        sessionStorage.setItem('oauthTokenSecret', oauthTokenSecret);
+        window.location.href = `https://api.twitter.com/oauth/authenticate?oauth_token=${oauthToken}`;
+      })
+      .catch(error => {
+        console.error('Error requesting request token:', error);
+      });
+    }
+
+    function generateNonce() {
+      return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+
+    // Function to create the OAuth signature
+    function createSignature(method, url, parameters, consumerSecret, tokenSecret = '') {
+        // Step 1: Sort the parameters alphabetically
+        const sortedParams = {};
+        Object.keys(parameters)
+        .sort()
+        .forEach(key => {
+            sortedParams[key] = parameters[key];
+        });
+    
+        // Step 2: Create the parameter string
+        const paramString = Object.keys(sortedParams)
+        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(sortedParams[key])}`)
+        .join('&');
+    
+        // Step 3: Create the base string
+        const baseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`;
+    
+        // Step 4: Create the signing key
+        const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+    
+        // Step 5: Generate the HMAC-SHA1 signature
+        const crypto = require('crypto'); // Node.js
+        const hmac = crypto.createHmac('sha1', signingKey);
+        hmac.update(baseString);
+    
+        return hmac.digest('base64');
+    }
+  
+    // Function to create the Authorization header
+    function createAuthorizationHeader(parameters) {
+        // Include OAuth realm if applicable
+        if (parameters.oauth_realm) {
+        parameters.oauth_realm = encodeURIComponent(parameters.oauth_realm);
+        }
+    
+        // Create an array of parameter strings
+        const paramStrings = Object.keys(parameters)
+        .map(key => `${encodeURIComponent(key)}="${encodeURIComponent(parameters[key])}"`);
+    
+        // Join the parameter strings and separate with commas
+        const header = 'OAuth ' + paramStrings.join(', ');
+    
+        return header;
+    }
+  
+  </script>
+</body>
+</html>
