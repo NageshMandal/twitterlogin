@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.3.0/jsrsasign-all-min.js"></script>
   <title>Twitter Login</title>
 </head>
 <body>
@@ -66,32 +67,31 @@
 
     // Function to create the OAuth signature
     function createSignature(method, url, parameters, consumerSecret, tokenSecret = '') {
-        // Step 1: Sort the parameters alphabetically
-        const sortedParams = {};
-        Object.keys(parameters)
-        .sort()
-        .forEach(key => {
-            sortedParams[key] = parameters[key];
-        });
-    
-        // Step 2: Create the parameter string
-        const paramString = Object.keys(sortedParams)
-        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(sortedParams[key])}`)
-        .join('&');
-    
-        // Step 3: Create the base string
-        const baseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`;
-    
-        // Step 4: Create the signing key
-        const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-    
-        // Step 5: Generate the HMAC-SHA1 signature
-        const crypto = require('crypto'); // Node.js
-        const hmac = crypto.createHmac('sha1', signingKey);
-        hmac.update(baseString);
-    
-        return hmac.digest('base64');
+      const header = {
+        alg: "HS256",
+        typ: "JWT"
+      };
+
+      const oauth = {
+        oauth_consumer_key: parameters.oauth_consumer_key,
+        oauth_nonce: parameters.oauth_nonce,
+        oauth_signature_method: parameters.oauth_signature_method,
+        oauth_timestamp: parameters.oauth_timestamp,
+        oauth_token: parameters.oauth_token,
+        oauth_version: parameters.oauth_version,
+      };
+
+      // Combine the header and oauth objects into a JSON Web Token (JWT)
+      const sHeader = JSON.stringify(header);
+      const sOauth = JSON.stringify(oauth);
+      const token = KJUR.jws.JWS.sign("HS256", sHeader, sOauth, consumerSecret + '&' + tokenSecret);
+
+      // Encode the token
+      const signature = encodeURIComponent(token);
+
+      return signature;
     }
+
   
     // Function to create the Authorization header
     function createAuthorizationHeader(parameters) {
